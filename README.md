@@ -1,6 +1,6 @@
 [![](https://jitpack.io/v/showang/Respect-OkHttp.svg)](https://jitpack.io/#showang/Respect-OkHttp)
 # Respect-OkHttp
-A OkHttp3 request executor based on Respect framework.
+A OkHttp3 request executor based on [Respect framework](https://github.com/showang/Respect).
 
 # How to
 To get a Git project into your build:
