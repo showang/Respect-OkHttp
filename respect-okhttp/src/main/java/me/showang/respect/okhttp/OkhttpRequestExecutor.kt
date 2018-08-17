@@ -1,11 +1,12 @@
 package me.showang.respect.okhttp
 
-import me.showang.respect.HttpMethod
-import me.showang.respect.RequestExecutor
-import me.showang.respect.RespectApi
-import me.showang.respect.async.AndroidAsyncManager
-import me.showang.respect.async.AsyncManager
-import me.showang.respect.async.FakeAsyncManager
+
+import me.showang.respect.core.HttpMethod
+import me.showang.respect.core.RequestExecutor
+import me.showang.respect.core.RespectApi
+import me.showang.respect.core.async.AndroidAsyncManager
+import me.showang.respect.core.async.AsyncManager
+import me.showang.respect.core.async.SyncManager
 import okhttp3.*
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -16,7 +17,7 @@ open class OkhttpRequestExecutor(
 ) : RequestExecutor {
 
     private val callMap: MutableMap<Any, Call> = mutableMapOf()
-    private val asyncManager: AsyncManager = if (syncMode) FakeAsyncManager() else AndroidAsyncManager()
+    override val asyncManager: AsyncManager = if (syncMode) SyncManager() else AndroidAsyncManager()
 
     override fun request(api: RespectApi, tag: Any, failCallback: (error: Error) -> Unit, completeCallback: (response: ByteArray) -> Unit) {
         asyncManager.start(background = {
