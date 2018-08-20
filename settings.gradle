@@ -1,2 +1,1 @@
-include ':respect-okhttp', ':respect-core'
-project(':respect-core').projectDir = new File('Respect-Core/respect-core')
+include ':respect-okhttp'
