@@ -1,12 +1,12 @@
 package me.showang.respect.okhttp
 
 
+import me.showang.respect.core.ApiSpec
 import me.showang.respect.core.HttpMethod
 import me.showang.respect.core.RequestExecutor
-import me.showang.respect.core.RespectApi
 import me.showang.respect.core.async.AndroidAsyncManager
 import me.showang.respect.core.async.AsyncManager
-import me.showang.respect.core.async.SyncManager
+import me.showang.respect.core.async.FakeAsyncManager
 import okhttp3.*
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -17,9 +17,9 @@ open class OkhttpRequestExecutor(
 ) : RequestExecutor {
 
     private val callMap: MutableMap<Any, Call> = mutableMapOf()
-    override val asyncManager: AsyncManager = if (syncMode) SyncManager() else AndroidAsyncManager()
+    override val asyncManager: AsyncManager = if (syncMode) FakeAsyncManager() else AndroidAsyncManager()
 
-    override fun request(api: RespectApi, tag: Any, failCallback: (error: Error) -> Unit, completeCallback: (response: ByteArray) -> Unit) {
+    override fun request(api: ApiSpec, tag: Any, failCallback: (error: Error) -> Unit, completeCallback: (response: ByteArray) -> Unit) {
         asyncManager.start(background = {
             var error: Error? = null
             var result: ByteArray? = null
@@ -29,17 +29,13 @@ open class OkhttpRequestExecutor(
             } catch (e: Error) {
                 error = e
             }
-            Pair(result, error)
-        }, uiThread = {
-            val result = it.first
-            val error = it.second
-            callMap.remove(tag)
             when {
                 error != null -> failCallback(error)
                 result != null -> completeCallback(result)
                 else -> failCallback(Error("Unknown error"))
             }
-        })
+            true
+        }, uiThread = {})
     }
 
     override fun cancel(tag: Any) {
@@ -52,7 +48,7 @@ open class OkhttpRequestExecutor(
     }
 
     @Throws(IOException::class)
-    private fun getResponse(api: RespectApi, tag: Any): Response {
+    private fun getResponse(api: ApiSpec, tag: Any): Response {
         val request = generateRequest(api, tag)
         val call = httpClient.newBuilder()
                 .readTimeout(api.timeout, TimeUnit.MILLISECONDS)
@@ -61,7 +57,7 @@ open class OkhttpRequestExecutor(
         return call.execute()
     }
 
-    private fun generateRequest(api: RespectApi, tag: Any): Request {
+    private fun generateRequest(api: ApiSpec, tag: Any): Request {
         val builder = Request.Builder()
                 .headers(headers(api))
                 .tag(tag)
@@ -73,7 +69,7 @@ open class OkhttpRequestExecutor(
         }.url(httpUrlWithQueries(api)).build()
     }
 
-    private fun httpUrlWithQueries(api: RespectApi): HttpUrl {
+    private fun httpUrlWithQueries(api: ApiSpec): HttpUrl {
         val urlBuilder = httpUrl(api).newBuilder()
         api.urlQueries.forEach { (key, value) ->
             urlBuilder.addQueryParameter(key, value)
@@ -81,11 +77,11 @@ open class OkhttpRequestExecutor(
         return urlBuilder.build()
     }
 
-    private fun httpUrl(api: RespectApi): HttpUrl {
+    private fun httpUrl(api: ApiSpec): HttpUrl {
         return HttpUrl.parse(api.url) ?: throw RuntimeException("url is not available")
     }
 
-    private fun headers(api: RespectApi): Headers {
+    private fun headers(api: ApiSpec): Headers {
         val headerBuilder = Headers.Builder()
         api.headers.forEach { (key, value) ->
             headerBuilder.add(key, value)
@@ -93,7 +89,7 @@ open class OkhttpRequestExecutor(
         return headerBuilder.build()
     }
 
-    private fun generateBody(api: RespectApi): RequestBody {
+    private fun generateBody(api: ApiSpec): RequestBody {
         return RequestBody.create(MediaType.parse(api.contentType), api.body)
     }
 

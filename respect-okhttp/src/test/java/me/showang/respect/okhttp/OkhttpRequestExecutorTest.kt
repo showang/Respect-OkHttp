@@ -1,6 +1,6 @@
 package me.showang.respect.okhttp
 
-import me.showang.respect.base.BasicApi
+import me.showang.respect.RespectApi
 import me.showang.respect.core.HttpMethod
 import me.showang.respect.core.RequestExecutor
 import org.junit.Before
@@ -20,9 +20,7 @@ class OkhttpRequestExecutorTest {
         MockGetApi().start(executor, successHandler = ::print)
     }
 
-    private fun print(s: String) = System.out.println(s)
-
-    class MockGetApi : BasicApi<String, MockGetApi>() {
+    class MockGetApi : RespectApi<String, MockGetApi>() {
         override fun parse(bytes: ByteArray): String {
             return String(bytes)
         }
