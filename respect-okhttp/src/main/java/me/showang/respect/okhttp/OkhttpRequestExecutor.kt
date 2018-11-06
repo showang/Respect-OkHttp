@@ -1,46 +1,28 @@
 package me.showang.respect.okhttp
 
 
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.withContext
 import me.showang.respect.core.ApiSpec
 import me.showang.respect.core.HttpMethod
 import me.showang.respect.core.RequestExecutor
-import me.showang.respect.core.async.AndroidAsyncManager
-import me.showang.respect.core.async.AsyncManager
-import me.showang.respect.core.async.FakeAsyncManager
 import okhttp3.*
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 open class OkhttpRequestExecutor(
-        private val httpClient: OkHttpClient = OkHttpClient(),
-        syncMode: Boolean = false
+        private val httpClient: OkHttpClient = OkHttpClient()
 ) : RequestExecutor {
 
-    private val callMap: MutableMap<Any, Call> = mutableMapOf()
-    override val asyncManager: AsyncManager = if (syncMode) FakeAsyncManager() else AndroidAsyncManager()
+    private val callMap: MutableMap<ApiSpec, Call> = mutableMapOf()
 
-    override fun request(api: ApiSpec, tag: Any, failCallback: (error: Error) -> Unit, completeCallback: (response: ByteArray) -> Unit) {
-        asyncManager.start(background = {
-            var error: Error? = null
-            var result: ByteArray? = null
-            try {
-                val response = getResponse(api, tag)
-                result = response.body()?.bytes() ?: ByteArray(0)
-            } catch (e: Error) {
-                error = e
-            }
-            when {
-                error != null -> failCallback(error)
-                result != null -> completeCallback(result)
-                else -> failCallback(Error("Unknown error"))
-            }
-            true
-        }, uiThread = {})
+    override suspend fun request(api: ApiSpec): ByteArray = withContext(IO) {
+        getResponse(api).body()?.bytes() ?: ByteArray(0)
     }
 
-    override fun cancel(tag: Any) {
-        callMap[tag]?.cancel()
-        callMap.remove(tag)
+    override fun cancel(api: ApiSpec) {
+        callMap[api]?.cancel()
+        callMap.remove(api)
     }
 
     override fun cancelAll() {
@@ -48,19 +30,18 @@ open class OkhttpRequestExecutor(
     }
 
     @Throws(IOException::class)
-    private fun getResponse(api: ApiSpec, tag: Any): Response {
-        val request = generateRequest(api, tag)
+    private fun getResponse(api: ApiSpec): Response {
+        val request = generateRequest(api)
         val call = httpClient.newBuilder()
                 .readTimeout(api.timeout, TimeUnit.MILLISECONDS)
                 .build().newCall(request)
-        callMap[tag] = call
+        callMap[api] = call
         return call.execute()
     }
 
-    private fun generateRequest(api: ApiSpec, tag: Any): Request {
+    private fun generateRequest(api: ApiSpec): Request {
         val builder = Request.Builder()
                 .headers(headers(api))
-                .tag(tag)
         return when (api.httpMethod) {
             HttpMethod.GET -> builder.get()
             HttpMethod.POST -> builder.post(generateBody(api))
