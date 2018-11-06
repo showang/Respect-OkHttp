@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.withContext
 import me.showang.respect.core.ApiSpec
 import me.showang.respect.core.HttpMethod
+import me.showang.respect.core.RequestError
 import me.showang.respect.core.RequestExecutor
 import okhttp3.*
 import java.io.IOException
@@ -16,8 +17,16 @@ open class OkhttpRequestExecutor(
 
     private val callMap: MutableMap<ApiSpec, Call> = mutableMapOf()
 
+    @Throws(RequestError::class)
     override suspend fun request(api: ApiSpec): ByteArray = withContext(IO) {
-        getResponse(api).body()?.bytes() ?: ByteArray(0)
+        var response: Response? = null
+        try {
+            response = getResponse(api)
+            response.body()?.bytes() ?: ByteArray(0)
+        } catch (e: Error) {
+            throw RequestError(e, response?.code() ?: 0,
+                    response?.body()?.bytes() ?: ByteArray(0))
+        }
     }
 
     override fun cancel(api: ApiSpec) {
@@ -31,24 +40,30 @@ open class OkhttpRequestExecutor(
 
     @Throws(IOException::class)
     private fun getResponse(api: ApiSpec): Response {
-        val request = generateRequest(api)
-        val call = httpClient.newBuilder()
-                .readTimeout(api.timeout, TimeUnit.MILLISECONDS)
-                .build().newCall(request)
-        callMap[api] = call
-        return call.execute()
+        return clientWith(api).newCall(generateRequest(api)).run {
+            callMap[api] = this
+            execute()
+        }
     }
 
-    private fun generateRequest(api: ApiSpec): Request {
-        val builder = Request.Builder()
-                .headers(headers(api))
-        return when (api.httpMethod) {
-            HttpMethod.GET -> builder.get()
-            HttpMethod.POST -> builder.post(generateBody(api))
-            HttpMethod.PUT -> builder.put(generateBody(api))
-            HttpMethod.DELETE -> builder.delete(generateBody(api))
-        }.url(httpUrlWithQueries(api)).build()
-    }
+    private fun clientWith(api: ApiSpec): OkHttpClient =
+            with(httpClient.newBuilder()) {
+                readTimeout(api.timeout, TimeUnit.MILLISECONDS)
+                build()
+            }
+
+    private fun generateRequest(api: ApiSpec): Request =
+            with(Request.Builder()) {
+                headers(headers(api))
+                when (api.httpMethod) {
+                    HttpMethod.GET -> get()
+                    HttpMethod.POST -> post(generateBody(api))
+                    HttpMethod.PUT -> put(generateBody(api))
+                    HttpMethod.DELETE -> delete(generateBody(api))
+                }
+                url(httpUrlWithQueries(api))
+                build()
+            }
 
     private fun httpUrlWithQueries(api: ApiSpec): HttpUrl {
         val urlBuilder = httpUrl(api).newBuilder()
