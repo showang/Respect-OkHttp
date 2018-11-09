@@ -22,7 +22,11 @@ open class OkhttpRequestExecutor(
         var response: Response? = null
         try {
             response = getResponse(api)
-            response.body()?.bytes() ?: ByteArray(0)
+            if (response.isSuccessful) {
+                response.body()?.bytes() ?: ByteArray(0)
+            } else {
+                throw Error()
+            }
         } catch (e: Error) {
             throw RequestError(e, response?.code() ?: 0,
                     response?.body()?.bytes() ?: ByteArray(0))
@@ -82,6 +86,7 @@ open class OkhttpRequestExecutor(
         api.headers.forEach { (key, value) ->
             headerBuilder.add(key, value)
         }
+        headerBuilder.add("Content-Type", api.contentType)
         return headerBuilder.build()
     }
 

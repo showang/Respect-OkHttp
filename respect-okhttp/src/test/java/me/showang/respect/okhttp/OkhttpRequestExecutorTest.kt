@@ -3,7 +3,10 @@ package me.showang.respect.okhttp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import me.showang.respect.RespectApi
+import me.showang.respect.core.ContentType
 import me.showang.respect.core.HttpMethod
+import me.showang.respect.core.ParseError
+import me.showang.respect.core.RequestError
 import org.junit.Test
 
 class OkhttpRequestExecutorTest {
@@ -58,5 +61,72 @@ class OkhttpRequestExecutorTest {
             get() = HttpMethod.GET
         override val urlQueries: Map<String, String>
             get() = mapOf("postId" to "1")
+    }
+
+    class MockPostApi : RespectApi<String>() {
+        override val httpMethod: HttpMethod
+            get() = HttpMethod.POST
+        override val url: String
+            get() = "https://jsonplaceholder.typicode.com/posts"
+
+        override val contentType: String
+            get() = ContentType.JSON
+
+        override val body: ByteArray
+            get() {
+                return "{\"title\": \"foo\", \"body\": \"bar\", \"userId\":1}".toByteArray()
+            }
+
+        override fun parse(bytes: ByteArray): String {
+            return String(bytes).also { println("result: $it") }
+        }
+    }
+
+    @Test
+    fun testPOST_success() {
+        runBlocking {
+            try {
+                val result = MockPostApi().suspend(OkhttpRequestExecutor())
+            } catch (e: Error) {
+                if (e is RequestError) {
+                    println("Error: ${e.responseCode} ${String(e.bodyBytes ?: byteArrayOf())}")
+                }
+                assert(false)
+            }
+
+        }
+    }
+
+    class MockParseErrorApi : RespectApi<String>() {
+        override val httpMethod: HttpMethod
+            get() = HttpMethod.POST
+        override val url: String
+            get() = "https://jsonplaceholder.typicode.com/posts"
+
+        override val contentType: String
+            get() = ContentType.JSON
+
+        override val body: ByteArray
+            get() {
+                return "{\"title\": \"foo\", \"body\": \"bar\", \"userId\":1}".toByteArray()
+            }
+
+        override fun parse(bytes: ByteArray): String {
+            throw Error("Parse Error")
+        }
+    }
+
+    @Test
+    fun testError() {
+        runBlocking {
+            try {
+                val result = MockParseErrorApi().suspend(OkhttpRequestExecutor())
+                println("final: $result")
+            } catch (e: Error) {
+                e.printStackTrace()
+                assert(e is ParseError)
+            }
+
+        }
     }
 }
