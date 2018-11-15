@@ -5,7 +5,6 @@ import kotlinx.coroutines.runBlocking
 import me.showang.respect.RespectApi
 import me.showang.respect.core.ContentType
 import me.showang.respect.core.HttpMethod
-import me.showang.respect.core.ParseError
 import me.showang.respect.core.RequestError
 import org.junit.Test
 
@@ -87,7 +86,7 @@ class OkhttpRequestExecutorTest {
         runBlocking {
             try {
                 val result = MockPostApi().suspend(OkhttpRequestExecutor())
-            } catch (e: Error) {
+            } catch (e: Throwable) {
                 if (e is RequestError) {
                     println("Error: ${e.responseCode} ${String(e.bodyBytes ?: byteArrayOf())}")
                 }
@@ -112,21 +111,18 @@ class OkhttpRequestExecutorTest {
             }
 
         override fun parse(bytes: ByteArray): String {
-            throw Error("Parse Error")
+            throw IllegalArgumentException("Parse Error")
         }
     }
 
     @Test
     fun testError() {
         runBlocking {
-            try {
-                val result = MockParseErrorApi().suspend(OkhttpRequestExecutor())
-                println("final: $result")
-            } catch (e: Error) {
-                e.printStackTrace()
-                assert(e is ParseError)
+            MockParseErrorApi().start(OkhttpRequestExecutor(), this, {
+                assert(true)
+            }) {
+                assert(false)
             }
-
         }
     }
 }
