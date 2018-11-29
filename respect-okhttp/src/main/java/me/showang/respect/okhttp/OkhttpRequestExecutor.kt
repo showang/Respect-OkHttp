@@ -8,7 +8,6 @@ import me.showang.respect.core.HttpMethod
 import me.showang.respect.core.RequestError
 import me.showang.respect.core.RequestExecutor
 import okhttp3.*
-import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 open class OkhttpRequestExecutor(
@@ -27,7 +26,7 @@ open class OkhttpRequestExecutor(
             } else {
                 throw Error()
             }
-        } catch (e: Error) {
+        } catch (e: Throwable) {
             throw RequestError(e, response?.code() ?: 0,
                     response?.body()?.bytes() ?: ByteArray(0))
         }
@@ -42,7 +41,7 @@ open class OkhttpRequestExecutor(
         httpClient.dispatcher().cancelAll()
     }
 
-    @Throws(IOException::class)
+    @Throws(Throwable::class)
     private fun getResponse(api: ApiSpec): Response {
         return clientWith(api).newCall(generateRequest(api)).run {
             callMap[api] = this
