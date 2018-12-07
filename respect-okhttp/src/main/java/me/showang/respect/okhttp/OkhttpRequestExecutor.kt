@@ -1,73 +1,77 @@
 package me.showang.respect.okhttp
 
 
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.withContext
 import me.showang.respect.core.ApiSpec
 import me.showang.respect.core.HttpMethod
+import me.showang.respect.core.RequestError
 import me.showang.respect.core.RequestExecutor
-import me.showang.respect.core.async.AndroidAsyncManager
-import me.showang.respect.core.async.AsyncManager
-import me.showang.respect.core.async.FakeAsyncManager
 import okhttp3.*
-import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 open class OkhttpRequestExecutor(
-        private val httpClient: OkHttpClient = OkHttpClient(),
-        syncMode: Boolean = false
+        private val httpClient: OkHttpClient = OkHttpClient()
 ) : RequestExecutor {
 
-    private val callMap: MutableMap<Any, Call> = mutableMapOf()
-    override val asyncManager: AsyncManager = if (syncMode) FakeAsyncManager() else AndroidAsyncManager()
+    private val callMap: MutableMap<ApiSpec, Call> = mutableMapOf()
 
-    override fun request(api: ApiSpec, tag: Any, failCallback: (error: Error) -> Unit, completeCallback: (response: ByteArray) -> Unit) {
-        asyncManager.start(background = {
-            var error: Error? = null
-            var result: ByteArray? = null
+    @Throws(RequestError::class)
+    override suspend fun request(api: ApiSpec): ByteArray = withContext(IO) {
+        var response: Response? = null
+        try {
+            response = getResponse(api)
+            if (response.isSuccessful) {
+                response.body()?.bytes() ?: ByteArray(0)
+            } else {
+                throw Error()
+            }
+        } catch (e: Throwable) {
+            val code = response?.code() ?: 0
             try {
-                val response = getResponse(api, tag)
-                result = response.body()?.bytes() ?: ByteArray(0)
-            } catch (e: Error) {
-                error = e
+                val message = response?.body()?.bytes() ?: ByteArray(0)
+                throw RequestError(e, code, message)
+            } catch (t: Throwable) { // Read error message when socket closed.
+                throw RequestError(t, code, ByteArray(0))
             }
-            when {
-                error != null -> failCallback(error)
-                result != null -> completeCallback(result)
-                else -> failCallback(Error("Unknown error"))
-            }
-            true
-        }, uiThread = {})
+        }
     }
 
-    override fun cancel(tag: Any) {
-        callMap[tag]?.cancel()
-        callMap.remove(tag)
+    override fun cancel(api: ApiSpec) {
+        callMap[api]?.cancel()
+        callMap.remove(api)
     }
 
     override fun cancelAll() {
         httpClient.dispatcher().cancelAll()
     }
 
-    @Throws(IOException::class)
-    private fun getResponse(api: ApiSpec, tag: Any): Response {
-        val request = generateRequest(api, tag)
-        val call = httpClient.newBuilder()
-                .readTimeout(api.timeout, TimeUnit.MILLISECONDS)
-                .build().newCall(request)
-        callMap[tag] = call
-        return call.execute()
+    @Throws(Throwable::class)
+    private fun getResponse(api: ApiSpec): Response {
+        return clientWith(api).newCall(generateRequest(api)).run {
+            callMap[api] = this
+            execute()
+        }
     }
 
-    private fun generateRequest(api: ApiSpec, tag: Any): Request {
-        val builder = Request.Builder()
-                .headers(headers(api))
-                .tag(tag)
-        return when (api.httpMethod) {
-            HttpMethod.GET -> builder.get()
-            HttpMethod.POST -> builder.post(generateBody(api))
-            HttpMethod.PUT -> builder.put(generateBody(api))
-            HttpMethod.DELETE -> builder.delete(generateBody(api))
-        }.url(httpUrlWithQueries(api)).build()
-    }
+    private fun clientWith(api: ApiSpec): OkHttpClient =
+            with(httpClient.newBuilder()) {
+                readTimeout(api.timeout, TimeUnit.MILLISECONDS)
+                build()
+            }
+
+    private fun generateRequest(api: ApiSpec): Request =
+            with(Request.Builder()) {
+                headers(headers(api))
+                when (api.httpMethod) {
+                    HttpMethod.GET -> get()
+                    HttpMethod.POST -> post(generateBody(api))
+                    HttpMethod.PUT -> put(generateBody(api))
+                    HttpMethod.DELETE -> delete(generateBody(api))
+                }
+                url(httpUrlWithQueries(api))
+                build()
+            }
 
     private fun httpUrlWithQueries(api: ApiSpec): HttpUrl {
         val urlBuilder = httpUrl(api).newBuilder()
@@ -86,6 +90,7 @@ open class OkhttpRequestExecutor(
         api.headers.forEach { (key, value) ->
             headerBuilder.add(key, value)
         }
+        headerBuilder.add("Content-Type", api.contentType)
         return headerBuilder.build()
     }
 
