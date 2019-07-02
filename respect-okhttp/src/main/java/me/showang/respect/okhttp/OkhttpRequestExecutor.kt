@@ -8,6 +8,7 @@ import me.showang.respect.core.HttpMethod
 import me.showang.respect.core.RequestError
 import me.showang.respect.core.RequestExecutor
 import okhttp3.*
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 open class OkhttpRequestExecutor(
@@ -27,12 +28,10 @@ open class OkhttpRequestExecutor(
                 throw Error()
             }
         } catch (e: Throwable) {
-            val code = response?.code() ?: 0
             try {
-                val message = response?.body()?.bytes() ?: ByteArray(0)
-                throw RequestError(e, code, message)
-            } catch (t: Throwable) { // Read error message when socket closed.
-                throw RequestError(t, code, ByteArray(0))
+                throw RequestError(e, response?.code() ?: 0, e.localizedMessage.toByteArray())
+            } catch (ioe: IOException) { // Read error message when socket closed.
+                throw RequestError(ioe, response?.code() ?: 0, ioe.message?.toByteArray())
             }
         }
     }
