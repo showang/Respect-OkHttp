@@ -25,13 +25,13 @@ open class OkhttpRequestExecutor(
             if (response.isSuccessful) {
                 response.body()?.bytes() ?: ByteArray(0)
             } else {
-                throw Error()
+                throw Error("request unsuccessful")
             }
         } catch (e: Throwable) {
             try {
-                throw RequestError(e, response?.code() ?: 0, e.localizedMessage.toByteArray())
-            } catch (ioe: IOException) { // Read error message when socket closed.
-                throw RequestError(ioe, response?.code() ?: 0, ioe.message?.toByteArray())
+                throw RequestError(e, response?.code() ?: 0, response?.body()?.bytes())
+            } catch (ex: Exception) { // Read error message when socket closed.
+                throw RequestError(ex, response?.code() ?: 0, ex.message?.toByteArray())
             }
         }
     }
