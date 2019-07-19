@@ -10,8 +10,8 @@ android {
     defaultConfig {
         minSdkVersion 15
         targetSdkVersion 28
-        versionCode 208
-        versionName "0.2.8"
+        versionCode 300
+        versionName "0.3.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -33,11 +33,16 @@ android {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.0.1"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.1.1"
 
-    compileOnly 'com.github.showang:Respect-Core:0.2.5'
+    compileOnly 'com.github.showang:Respect-Core:0.3.0'
+//    compileOnly project(path: ':core')
+
     implementation 'com.squareup.okhttp3:okhttp:3.12.1'
 
     testImplementation 'junit:junit:4.12'
-    testImplementation 'com.github.showang:Respect-Core:0.2.5'
+    testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:2.1.0"
+    testImplementation 'org.mockito:mockito-inline:2.13.0'
+    testImplementation 'com.github.showang:Respect-Core:0.3.0'
+//    testImplementation project(path: ':core')
 }

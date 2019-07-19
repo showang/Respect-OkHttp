@@ -5,10 +5,9 @@ import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.withContext
 import me.showang.respect.core.ApiSpec
 import me.showang.respect.core.HttpMethod
-import me.showang.respect.core.RequestError
 import me.showang.respect.core.RequestExecutor
+import me.showang.respect.core.error.RequestError
 import okhttp3.*
-import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 open class OkhttpRequestExecutor(
@@ -25,13 +24,14 @@ open class OkhttpRequestExecutor(
             if (response.isSuccessful) {
                 response.body()?.bytes() ?: ByteArray(0)
             } else {
-                throw Error("request unsuccessful")
+                throw RequestError(Error("Okhttp request unsuccessful"), response.code(), response.body()?.bytes())
             }
         } catch (e: Throwable) {
-            try {
-                throw RequestError(e, response?.code() ?: 0, response?.body()?.bytes())
-            } catch (ex: Exception) { // Read error message when socket closed.
-                throw RequestError(ex, response?.code() ?: 0, ex.message?.toByteArray())
+            if (e !is RequestError) {
+                throw RequestError(e, response?.code()
+                        ?: 0, response?.body()?.bytes())
+            } else {
+                throw e
             }
         }
     }

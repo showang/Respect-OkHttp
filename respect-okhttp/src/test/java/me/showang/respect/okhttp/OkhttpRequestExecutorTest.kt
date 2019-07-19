@@ -1,14 +1,20 @@
 package me.showang.respect.okhttp
 
+import com.nhaarman.mockitokotlin2.doReturn
+import com.nhaarman.mockitokotlin2.doThrow
+import com.nhaarman.mockitokotlin2.mock
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import me.showang.respect.RespectApi
-import me.showang.respect.core.ApiSpec
 import me.showang.respect.core.ContentType
 import me.showang.respect.core.HttpMethod
-import me.showang.respect.core.RequestError
+import me.showang.respect.core.error.RequestError
+import okhttp3.*
 import org.junit.Test
+import org.mockito.ArgumentMatchers
+import org.mockito.Mockito.`when`
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class OkhttpRequestExecutorTest {
 
@@ -148,17 +154,75 @@ class OkhttpRequestExecutorTest {
     }
 
     @Test
-    fun testIOException() {
+    fun testParsingException() {
         runBlocking {
-            IoExceptionApi().start(object: OkhttpRequestExecutor() {
-                override suspend fun request(api: ApiSpec): ByteArray {
-                    throw IOException("test")
-                }
-            }, this, {
-                assert(true)
+            IoExceptionApi().start(OkhttpRequestExecutor(), this, {
+                print("{testParsingException}\n $it")
             }) {
                 assert(false)
             }
         }
+    }
+
+    @Test
+    fun testRequestError() {
+        val mockOkhttp = mock<OkHttpClient> {
+            on { newBuilder() } doThrow IllegalStateException("Test Request Error")
+        }
+        val executor = OkhttpRequestExecutor(mockOkhttp)
+
+        runBlocking {
+            MockGetApi().start(executor, this, {
+                print("{testRequestError}\n $it")
+            }) {
+                assert(false) {
+                    "testRequestError must error."
+                }
+            }
+        }
+    }
+
+    @Test
+    fun testRequestErrorCode404() {
+        val api = MockGetApi()
+        val mockResponse = with(Response.Builder()){
+            request(with(Request.Builder()) {
+                headers(Headers.Builder().build())
+                get()
+                url("https://test_url")
+                protocol(Protocol.HTTP_2)
+                build()
+            })
+            code(404)
+            body(ResponseBody.create(null, "mock 404 not found"))
+            message("mock 404 not found")
+            build()
+        }
+        val mockBuilder: OkHttpClient.Builder = mock()
+        val mockCall: Call = mock {
+            on { execute() } doReturn mockResponse
+        }
+        val mockOkhttp = mock<OkHttpClient> {
+            on { newBuilder() } doReturn mockBuilder
+            on { newCall(ArgumentMatchers.any(Request::class.java))} doReturn mockCall
+        }
+        `when`(mockBuilder.callTimeout(api.timeout, TimeUnit.MILLISECONDS)).thenReturn(mockBuilder)
+        `when`(mockBuilder.build()).thenReturn(mockOkhttp)
+
+        val requestExecutor = OkhttpRequestExecutor(mockOkhttp)
+
+        runBlocking {
+            api.start(requestExecutor, this, {
+                assert(it is RequestError) {
+                    "testRequestErrorCode404 must throw RequestError"
+                }
+                print(it)
+            }) {
+                assert(false) {
+                    "testRequestErrorCode404 must throw RequestError"
+                }
+            }
+        }
+
     }
 }
