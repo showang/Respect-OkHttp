@@ -6,10 +6,7 @@ import kotlinx.coroutines.runBlocking
 import me.showang.respect.core.RequestExecutor
 import me.showang.respect.core.error.ParseError
 import me.showang.respect.core.error.RequestError
-import me.showang.respect.okhttp.testapi.IoExceptionApi
-import me.showang.respect.okhttp.testapi.MockGetApi
-import me.showang.respect.okhttp.testapi.MockParseErrorApi
-import me.showang.respect.okhttp.testapi.MockPostApi
+import me.showang.respect.okhttp.testapi.*
 import okhttp3.*
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Test
@@ -42,10 +39,21 @@ class OkhttpRequestExecutorTest {
     }
 
     @Test
+    fun testGET_queryArray() {
+        runBlocking {
+            try {
+                MockQueryArrayApi().request(executor)
+            } catch (e: Throwable) {
+                assert(false)
+            }
+        }
+    }
+
+    @Test
     fun testPOST_success() {
         runBlocking {
             try {
-                MockPostApi().request(OkhttpRequestExecutor())
+                MockPostApi().request(executor)
             } catch (e: Throwable) {
                 if (e is RequestError) {
                     println("Error: ${e.responseCode} ${String(e.bodyBytes ?: byteArrayOf())}")

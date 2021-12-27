@@ -35,7 +35,7 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.5.2"
 
-    compileOnly 'com.github.showang:Respect-Core:1.0.0'
+    compileOnly 'com.github.showang:Respect-Core:1.0.1'
 //    compileOnly project(path: ':core')
 
     implementation 'com.squareup.okhttp3:okhttp:4.9.2'
@@ -43,6 +43,6 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'io.mockk:mockk:1.12.1'
     testImplementation 'com.google.code.gson:gson:2.8.9'
-    testImplementation 'com.github.showang:Respect-Core:1.0.0'
+    testImplementation 'com.github.showang:Respect-Core:1.0.1'
 //    testImplementation project(path: ':core')
 }

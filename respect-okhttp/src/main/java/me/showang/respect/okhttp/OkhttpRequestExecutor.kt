@@ -103,6 +103,11 @@ open class OkhttpRequestExecutor(
         api.urlQueries.forEach { (key, value) ->
             urlBuilder.addQueryParameter(key, value)
         }
+        api.urlArrayQueries.forEach {
+            it.value.forEach { value ->
+                urlBuilder.addQueryParameter(it.key, value)
+            }
+        }
         return urlBuilder.build()
     }
 
