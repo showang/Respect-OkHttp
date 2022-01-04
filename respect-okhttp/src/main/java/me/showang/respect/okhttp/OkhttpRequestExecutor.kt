@@ -1,8 +1,7 @@
 package me.showang.respect.okhttp
 
 
-import kotlinx.coroutines.Dispatchers.IO
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
 import me.showang.respect.core.ApiSpec
 import me.showang.respect.core.Headers.CONTENT_TYPE
 import me.showang.respect.core.HttpMethod
@@ -24,7 +23,10 @@ open class OkhttpRequestExecutor(
     private val callMap: MutableMap<ApiSpec, Call> = mutableMapOf()
 
     @Throws(RequestError::class)
-    override suspend fun submit(api: ApiSpec): InputStream = withContext(IO) {
+    override suspend fun submit(api: ApiSpec): InputStream = suspendCancellableCoroutine {
+        it.invokeOnCancellation {
+            cancel(api)
+        }
         var response: Response? = null
         try {
             response = getResponse(api)
@@ -117,7 +119,8 @@ open class OkhttpRequestExecutor(
 
     private fun headers(api: ApiSpec) = with(Headers.Builder()) {
         addAll(api.headers.toHeaders())
-        add(CONTENT_TYPE, api.contentType)
+        api.contentType.takeIf { it.isNotBlank() }
+            ?.let { add(CONTENT_TYPE, it) }
         build()
     }
 

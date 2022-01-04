@@ -2,13 +2,15 @@ package me.showang.respect.okhttp
 
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers.Default
 import me.showang.respect.core.RequestExecutor
 import me.showang.respect.core.error.ParseError
 import me.showang.respect.core.error.RequestError
 import me.showang.respect.okhttp.testapi.*
 import okhttp3.*
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okhttp3.internal.wait
 import org.junit.Test
 import java.io.IOException
 
@@ -88,6 +90,25 @@ class OkhttpRequestExecutorTest {
                 assert(e.cause is IOException)
                 print("{testParsingException}\n $e")
             }
+        }
+    }
+
+    @Test
+    fun testCancellation() {
+        val job = CoroutineScope(Default).launch {
+            try {
+                MockPostApi().request(executor)
+                    .let(::println)
+                assert(false)
+            } catch (e: Throwable) {
+                println("job canceled")
+                assert(e is CancellationException)
+            }
+        }
+        runBlocking {
+            job.cancel()
+            job.join()
+            println("job joined")
         }
     }
 
