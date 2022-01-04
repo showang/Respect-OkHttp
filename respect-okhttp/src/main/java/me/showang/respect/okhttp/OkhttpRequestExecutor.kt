@@ -15,9 +15,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 open class OkhttpRequestExecutor(
-    private val httpClient: OkHttpClient = OkHttpClient()
+        private val httpClient: OkHttpClient = OkHttpClient()
 ) : RequestExecutor {
 
     private val callMap: MutableMap<ApiSpec, Call> = mutableMapOf()
@@ -30,17 +32,15 @@ open class OkhttpRequestExecutor(
         var response: Response? = null
         try {
             response = getResponse(api)
-            response.bodyInputStream()
+            it.resume(response.bodyInputStream())
         } catch (e: Throwable) {
-            if (e !is RequestError) {
-                throw response?.let {
-                    RequestError(
-                        e, response.code, response.body?.byteStream()?.readBytes()
-                    )
-                } ?: RequestError(e)
-            } else {
-                throw e
-            }
+            it.resumeWithException(
+                    if (e !is RequestError) {
+                        response?.run {
+                            RequestError(e, code, body?.byteStream()?.readBytes())
+                        } ?: RequestError(e)
+                    } else e
+            )
         }
     }
 
@@ -70,15 +70,15 @@ open class OkhttpRequestExecutor(
 
     @Throws(RequestError::class)
     private fun Response.bodyInputStream(): InputStream =
-        if (isSuccessful) {
-            body?.byteStream() ?: ByteArrayInputStream(ByteArray(0))
-        } else {
-            throw RequestError(
-                Error("Okhttp request unsuccessful. $message"),
-                code,
-                body?.byteStream()?.readBytes()
-            )
-        }
+            if (isSuccessful) {
+                body?.byteStream() ?: ByteArrayInputStream(ByteArray(0))
+            } else {
+                throw RequestError(
+                        Error("Okhttp request unsuccessful. $message"),
+                        code,
+                        body?.byteStream()?.readBytes()
+                )
+            }
 
     private fun clientWith(api: ApiSpec) = api.timeout?.let {
         with(httpClient.newBuilder()) {
@@ -88,17 +88,17 @@ open class OkhttpRequestExecutor(
     } ?: httpClient
 
     private fun generateRequest(api: ApiSpec): Request =
-        with(Request.Builder()) {
-            headers(headers(api))
-            when (api.httpMethod) {
-                HttpMethod.GET -> get()
-                HttpMethod.POST -> post(generateBody(api))
-                HttpMethod.PUT -> put(generateBody(api))
-                HttpMethod.DELETE -> delete(generateBody(api))
+            with(Request.Builder()) {
+                headers(headers(api))
+                when (api.httpMethod) {
+                    HttpMethod.GET -> get()
+                    HttpMethod.POST -> post(generateBody(api))
+                    HttpMethod.PUT -> put(generateBody(api))
+                    HttpMethod.DELETE -> delete(generateBody(api))
+                }
+                url(httpUrlWithQueries(api))
+                build()
             }
-            url(httpUrlWithQueries(api))
-            build()
-        }
 
     private fun httpUrlWithQueries(api: ApiSpec): HttpUrl {
         val urlBuilder = httpUrl(api).newBuilder()
@@ -120,7 +120,7 @@ open class OkhttpRequestExecutor(
     private fun headers(api: ApiSpec) = with(Headers.Builder()) {
         addAll(api.headers.toHeaders())
         api.contentType.takeIf { it.isNotBlank() }
-            ?.let { add(CONTENT_TYPE, it) }
+                ?.let { add(CONTENT_TYPE, it) }
         build()
     }
 
