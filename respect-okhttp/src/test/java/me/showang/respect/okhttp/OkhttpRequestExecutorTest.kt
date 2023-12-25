@@ -5,8 +5,8 @@ import io.mockk.mockk
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.Default
 import me.showang.respect.core.RequestExecutor
-import me.showang.respect.core.error.ParseError
-import me.showang.respect.core.error.RequestError
+import me.showang.respect.core.error.ParseException
+import me.showang.respect.core.error.RequestException
 import me.showang.respect.okhttp.testapi.*
 import okhttp3.*
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -57,7 +57,7 @@ class OkhttpRequestExecutorTest {
             try {
                 MockPostApi().request(executor)
             } catch (e: Throwable) {
-                if (e is RequestError) {
+                if (e is RequestException) {
                     println("Error: ${e.responseCode} ${String(e.bodyBytes ?: byteArrayOf())}")
                 }
                 assert(false)
@@ -73,7 +73,7 @@ class OkhttpRequestExecutorTest {
                 MockParseErrorApi().request(executor)
                 assert(false) { "Should not be success" }
             } catch (e: Throwable) {
-                assert(e is ParseError)
+                assert(e is ParseException)
                 assert(e.cause is IllegalArgumentException)
             }
         }
@@ -86,7 +86,7 @@ class OkhttpRequestExecutorTest {
                 IoExceptionApi().request(executor)
                 assert(false) { "Should not be success" }
             } catch (e: Throwable) {
-                assert(e is ParseError)
+                assert(e is ParseException)
                 assert(e.cause is IOException)
                 print("{testParsingException}\n $e")
             }
@@ -140,11 +140,10 @@ class OkhttpRequestExecutorTest {
                 }
             } catch (e: Throwable) {
                 when (e) {
-                    is RequestError -> assert(e.responseCode == 404) { "response code should be 404" }
+                    is RequestException -> assert(e.responseCode == 404) { "response code should be 404" }
                     else -> assert(false) { "testRequestErrorCode 404 must throw RequestError" }
                 }
             }
         }
-
     }
 }

@@ -1,26 +1,25 @@
-apply plugin: 'com.android.library'
-apply plugin: 'com.github.dcendents.android-maven'
+plugins {
+    id 'com.android.library'
+    id 'kotlin-android'
+    id 'maven-publish'
+}
 group = 'com.github.showang'
 
-apply plugin: 'kotlin-android'
-
+def version_name = '1.1.1'
 android {
-    compileSdkVersion 30
-
+    compileSdk 34
     defaultConfig {
         minSdkVersion 15
-        targetSdkVersion 30
-        versionCode 1100
-        versionName "1.1.0"
+        versionCode 1101
+        versionName version_name
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
-    kotlinOptions { jvmTarget = "1.8" }
 
     buildTypes {
         release {
@@ -28,21 +27,30 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.5.2"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinx_coroutines_version"
 
-    compileOnly 'com.github.showang:Respect-Core:1.0.1'
-//    compileOnly project(path: ':core')
-
-    implementation 'com.squareup.okhttp3:okhttp:4.9.2'
+    implementation 'com.github.showang:Respect-Core:1.1.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'io.mockk:mockk:1.12.1'
-    testImplementation 'com.google.code.gson:gson:2.8.9'
-    testImplementation 'com.github.showang:Respect-Core:1.0.1'
+    testImplementation 'com.google.code.gson:gson:2.10.1'
+    testImplementation 'com.github.showang:Respect-Core:1.1.0'
 //    testImplementation project(path: ':core')
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                groupId = "me.showang.showang"
+                artifactId = "respect-okhttp"
+                version = version_name
+            }
+        }
+    }
 }
